@@ -5,6 +5,7 @@
 /src-cljs
 /bin
 /javascript
+/docs
 pom.xml
 *.jar
 *.class
