@@ -1,6 +1,6 @@
 (ns clojuresubs.core
   (:require [clojure.string :as string])
-  (:use [clojuresubs.utils :only [parse-int enumerate my-format]]))
+  (:use [clojuresubs.utils :only [parse-int enumerate my-format partition-sections]]))
 
 (defprotocol ISubtitles
   (shift [_ ms-delta] "Shift all timestamps in file by ms-delta (clipping at zero). Returns new instance."))
@@ -16,9 +16,10 @@
 
 (def empty-subtitles (Subtitles. {} {} []))
 
-(defn ^:export encode-subrip-timestamp
+(defn encode-subrip-timestamp
   [total-ms]
-  {:pre [(not (neg? total-ms))
+  {:export true
+   :pre [(not (neg? total-ms))
          (< total-ms (* 100 60 60 1000))]}
   (let [ms (rem total-ms 1000)
         s  (rem (quot total-ms 1000) 60)
@@ -26,9 +27,10 @@
         h  (quot total-ms (* 60 60 1000))]
     (my-format "%02d:%02d:%02d,%03d" h m s ms)))
 
-(defn ^:export encode-substation-timestamp
+(defn encode-substation-timestamp
   [total-ms]
-  {:pre [(not (neg? total-ms))
+  {:export true
+   :pre [(not (neg? total-ms))
          (< total-ms (* 10 60 60 1000))]}
   (let [cs (rem (quot total-ms 10) 100)
         s  (rem (quot total-ms 1000) 60)
@@ -64,35 +66,6 @@
   (-> text
       (string/replace "\n" "\\N")
       (string/replace #"<([^>]+)>" "")))
-
-(def subrip-timestamp-line #"(\d{2}:\d{2}:\d{2}[,.]\d{3}) *--> *(\d{2}:\d{2}:\d{2}[,.]\d{3})(?: .*)?")
-
-(defn- parse-subrip-by-lines
-  [lines]
-  (let [timestamp-line?   (partial re-matches subrip-timestamp-line)
-        my-string-replace #(string/replace %3 %1 %2)]
-    (for [[[timestamp-line] [& text-lines]] (->> lines
-                                                 string/trim
-                                                 (drop-while (complement timestamp-line?))   
-                                                 (partition-by timestamp-line?)
-                                                 (partition 2))
-          :let [[start end] (->> timestamp-line
-                                 (re-matches subrip-timestamp-line)
-                                 rest
-                                 (map decode-subrip-timestamp))
-                text        (->> text-lines
-                                 (string/join "\n")
-                                 (my-string-replace #"\n\d+$" "") ;; note: no lookbehind in js
-                                 decode-subrip-text)]]
-      {:Start start :End end :Text text})))
-
-(defn ^:export parse-subrip-lines
-  [lines]
-  (Subtitles. [] [] (parse-subrip-by-lines lines)))
-
-(defn ^:export parse-subrip
-  [text]
-  (parse-subrip-lines (string/split-lines text)))
 
 (defn ^:export serialize-subrip
   [subtitles]
@@ -139,7 +112,7 @@
   nil)
 
 (defn parse-substation-section
-  [subtitles header lines]
+  [subtitles [header & lines]]
   (let [line-to-kv       #(rest (re-matches ordinary-substation-line %))
         omit-format-line (partial filter (fn [[event-type _]] (not= event-type "Format")))
         version          (case (get-in subtitles [:info "ScriptType"])
@@ -164,20 +137,37 @@
 
 (defn parse-substation-lines
   [lines]
-  (let [useful-line?        (complement #(or (empty? %) (= (first %) \;)))
-        not-section-header? (complement (partial re-matches substation-section-header))]
-    (loop [subtitles empty-subtitles
-           lines     (->> lines
-                          (map string/trim)
-                          (filter useful-line?)
-                          (drop-while not-section-header?))]
-      (let [header-line     (first lines)
-            section-lines   (take-while not-section-header? (rest lines))
-            remaining-lines (drop-while not-section-header? (rest lines))]
-        (if (seq lines)
-          (recur (parse-substation-section subtitles header-line section-lines) remaining-lines)
-          subtitles)))))
+  (let [section-header? (partial re-matches substation-section-header)
+        useful-line?    (complement #(or (empty? %) (= (first %) \;)))
+        filtered-lines  (->> lines (map string/trim) (filter useful-line?))
+        sections        (partition-sections section-header? filtered-lines)]
+    (reduce parse-substation-section empty-subtitles sections)))
 
 (defn parse-substation
   [text]
   (parse-substation-lines (string/split-lines text)))
+
+
+
+
+(def subrip-timestamp-line #"(\d{2}:\d{2}:\d{2}[,.]\d{3}) *--> *(\d{2}:\d{2}:\d{2}[,.]\d{3})(?: .*)?")
+
+(defn- parse-subrip-event
+  [[timestamps & body]]
+  (let [[start end] (map decode-subrip-timestamp (rest (re-matches subrip-timestamp-line timestamps)))
+        trailing-id #"\n *\d+ *$"
+        text        (decode-subrip-text (-> (string/join "\n" body)
+                                            (string/replace trailing-id "")))]
+    {:Start start :End end :Text text}))
+
+(defn parse-subrip-lines
+  [lines]
+  {:export true}
+  (let [timestamp-line? (partial re-matches subrip-timestamp-line)
+        events          (partition-sections timestamp-line? (map string/trim lines))]
+    (Subtitles. {} {} (apply vector (map parse-subrip-event events)))))
+
+(defn parse-subrip
+  [text]
+  {:export true} 
+  (parse-subrip-lines (string/split-lines text)))
