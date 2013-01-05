@@ -22,8 +22,8 @@
   whenever pred returns truthy value. Initial falsey values are
   dropped. Returns lazy seq."
   [pred coll]
-  (let [co-pred      (complement pred)
-        [[x & xs]]   (drop-while co-pred coll)]
+  (let [co-pred  (complement pred)
+        [x & xs] (drop-while co-pred coll)]
     (when x
       (cons (concat [x] (take-while co-pred xs))
             (lazy-seq (partition-sections pred xs))))))
