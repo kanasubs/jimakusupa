@@ -10,7 +10,7 @@
     (let [shift-line (fn [{start :Start end :End :as fields}]
                          (assoc fields :Start (max (+ start ms-delta) 0)
                                        :End   (max (+ end   ms-delta) 0)))]
-      (Subtitles. info styles (map shift-line events)))))
+      (Subtitles. info styles (mapv shift-line events)))))
 
 (def default-info
   {"WrapStyle" "0"
