@@ -26,7 +26,7 @@
             (cond
               (#{"i" "b" "u" "s"} tag) (str "{\\\\" tag (if slash 0 1) "}")
               :else ""))]
-    (string/replace #"<(/)?([^>]+)>" f)))
+    (string/replace s #"<(/)?([^>]+)>" f)))
 
 (defn decode-text
   [text]
