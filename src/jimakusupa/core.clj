@@ -1,6 +1,6 @@
-(ns clojuresubs.core
-  (:require [clojure.string :as string])
-  (:use [clojuresubs.utils :only [parse-int enumerate my-format]]))
+(ns jimakusupa.core
+  (:use jimakusupa.util)
+  (:require [clojure.string :as string]))
 
 (defprotocol ISubtitles
   (shift [_ ms-delta] "Shift all timestamps in file by ms-delta (clipping at zero). Returns new instance."))
@@ -100,3 +100,19 @@
                           (encode-subrip-timestamp (:Start event))
                           (encode-subrip-timestamp (:End event))
                           (encode-subrip-text      (:Text event))))))
+
+(defmulti parse (fn [ext _] (if (= ext :srt) :srt :ssa)))
+
+(defmethod parse :srt [_ text] (parse-subrip text))
+
+(defmethod parse :ssa [_ text]
+  ; https://github.com/JDaren/subtitleConverter/blob/master/src/main/java/subtitleFile/Caption.java
+  (if text
+    (let [parsed-sub (.parseFile (subtitleFile.FormatASS.) "" (str->stream text))
+          get-mseconds #(get-field (class %) "mseconds" %)
+          eventλ #(identity {:Start (-> % .getValue .start get-mseconds)
+                             :End (-> % .getValue .end get-mseconds)
+                             :Text (-> % .getValue .content)})]
+      {:events (vec (map eventλ (.captions parsed-sub)))})))
+
+(defmethod parse :default [_ text])
