@@ -1,4 +1,4 @@
-(ns jimakusupa.util)
+(ns jimaku.util)
 
 (defn parse-int [s]
   "Parse string into integer (platform-dependent implementation)."

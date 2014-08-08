@@ -1,5 +1,5 @@
-(ns jimakusupa.core
-  (:use jimakusupa.util)
+(ns jimaku.supa
+  (:use jimaku.util)
   (:require [clojure.string :as string]))
 
 (defprotocol ISubtitles

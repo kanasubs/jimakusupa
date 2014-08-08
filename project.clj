@@ -1,4 +1,4 @@
-(defproject jimakusupa "0.1.0"
+(defproject jimakusupa "0.1.1"
   :description "A Clojure library for working with subtitles"
   :url "https://github.com/ccfontes/jimaku"
   :license {:name "Eclipse Public License" :url "http://www.eclipse.org/legal/epl-v10.html"}
