@@ -1,9 +1,11 @@
 (ns jimaku.supa
   (:use jimaku.util)
-  (:require [clojure.string :as string]))
+  (:require [clojure.string :as str]))
 
 (defprotocol ISubtitles
-  (shift [_ ms-delta] "Shift all timestamps in file by ms-delta (clipping at zero). Returns new instance."))
+  (shift [_ ms-delta]
+    (str "Shift all timestamps in file by ms-delta (clipping at zero). "
+         "Returns new instance.")))
 
 (defrecord Subtitles [info styles events]
   ISubtitles
@@ -34,16 +36,14 @@
         h  (quot total-ms (* 60 60 1000))]
     (my-format "%d:%02d:%02d.%02d" h m s cs)))
 
-(defn ^:export decode-subrip-timestamp
-  [timestamp]
+(defn ^:export decode-subrip-timestamp [timestamp]
   (let [[h m s ms] (->> timestamp
                         (re-matches #"(\d{2}):(\d{2}):(\d{2})[,.](\d{3})")
                         rest
                         (map parse-int))]
     (+ ms (* 1000 s) (* 60 1000 m) (* 60 60 1000 h))))
 
-(defn ^:export decode-substation-timestamp
-  [timestamp]
+(defn ^:export decode-substation-timestamp [timestamp]
   (let [[h m s cs] (->> timestamp
                         (re-matches #"(\d):(\d{2}):(\d{2}).(\d{2})")
                         rest
@@ -53,22 +53,21 @@
 (defn ^:export encode-subrip-text
   [text]
   (-> text
-      (string/replace #"\{[^\}]*\}" "")
-      (string/replace "\\h" " ")
-      (string/replace #"\\[nN]" "\n")))
+    (str/replace #"\{[^\}]*\}" "")
+    (str/replace "\\h" " ")
+    (str/replace #"\\[nN]" "\n")))
 
 (defn ^:export decode-subrip-text
   [text]
   (-> text
-      (string/replace "\n" "\\N")
-      (string/replace #"<([^>]+)>" "")))
+    (str/replace "\n" "\\N")
+    (str/replace #"<([^>]+)>" "")))
 
 (def subrip-timestamp-line #" *(\d{2}:\d{2}:\d{2}[,.]\d{3}) *--> *(\d{2}:\d{2}:\d{2}[,.]\d{3})(?: .*)?")
 
-(defn- parse-subrip-by-lines
-  [lines]
+(defn- parse-subrip-by-lines [lines]
   (let [timestamp-line?   (partial re-matches subrip-timestamp-line)
-        my-string-replace #(string/replace %3 %1 %2)]
+        my-string-replace #(str/replace %3 %1 %2)]
     (for [[[timestamp-line] [& text-lines]] (->> lines
                                                  (drop-while (complement timestamp-line?))   
                                                  (partition-by timestamp-line?)
@@ -78,34 +77,38 @@
                                  rest
                                  (map decode-subrip-timestamp))
                 text        (->> text-lines
-                                 (string/join "\n")
+                                 (str/join "\n")
                                  (my-string-replace #"(?m)^ *\d+ *$" "")
-                                 string/trim
+                                 str/trim
                                  decode-subrip-text)]]
       {:Start start :End end :Text text})))
 
-(defn ^:export parse-subrip-lines
-  [lines]
+(defn ^:export parse-subrip-lines [lines]
   (Subtitles. [] [] (parse-subrip-by-lines lines)))
 
-(defn ^:export parse-subrip
-  [text]
-  (parse-subrip-lines (string/split-lines text)))
+(defn ^:export parse-subrip [text]
+  (parse-subrip-lines (str/split-lines text)))
 
-(defn ^:export serialize-subrip
-  [subtitles]
-  (string/join "\n\n" (for [[i event] (enumerate 1 (:events subtitles))]
-                        (format "%d\n%s --> %s\n%s"
-                          i
-                          (encode-subrip-timestamp (:Start event))
-                          (encode-subrip-timestamp (:End event))
-                          (encode-subrip-text      (:Text event))))))
+(defn ^:export serialize-subrip [subtitles]
+  (str/join
+    "\n\n"
+    (map-indexed #(format "%d\n%s --> %s\n%s"
+                   (inc %1)
+                   (encode-subrip-timestamp (:Start %2))
+                   (encode-subrip-timestamp (:End %2))
+                   (encode-subrip-text (:Text %2)))
+                 (:events subtitles))))
 
-(defmulti parse (fn [ext _] (if (= ext :srt) :srt :ssa)))
+(defmulti parse
+  (fn [ext _]
+    (let [ext (->> ext name (take-last 3) str/join)]
+      (if (= ext "srt")
+        "srt"
+        "ssa"))))
 
-(defmethod parse :srt [_ text] (parse-subrip text))
+(defmethod parse "srt" [_ text] (parse-subrip text))
 
-(defmethod parse :ssa [_ text]
+(defmethod parse "ssa" [_ text]
   ; https://github.com/JDaren/subtitleConverter/blob/master/src/main/java/subtitleFile/Caption.java
   (if text
     (let [parsed-sub (.parseFile (subtitleFile.FormatASS.) "" (str->stream text))
@@ -116,3 +119,7 @@
       {:events (vec (map eventλ (.captions parsed-sub)))})))
 
 (defmethod parse :default [_ text])
+
+(defn srt-txt?
+  "Returns true if the text is in format srt, and false otherwise."
+  [text] (= (first text) \1))

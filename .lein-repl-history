@@ -1,0 +1,40 @@
+(def subs "1
+00:00:20,000 --> 00:00:24,400
+Altocumulus clouds occur between six thousand
+2
+00:00:24,600 --> 00:00:27,800
+and twenty thousand feet above ground level.")
+(-> (parse :srt subs) (shift 1000) serialize-subrip print)
+serialize-subrip
+(in-ns 'jimakusupa.core)
+(def subs "1
+00:00:20,000 --> 00:00:24,400
+Altocumulus clouds occur between six thousand
+2
+00:00:24,600 --> 00:00:27,800
+and twenty thousand feet above ground level.")
+(-> (parse :srt subs) (shift 1000) serialize-subrip print)
+subs
+parse
+serialize-subrip
+(in-ns ji
+(in-ns jimakusupa.core)
+(in-ns 'jimakusupa.core)
+serialize-subrip
+exit
+(use 'jimakusupa.core)
+(def subs "1
+00:00:20,000 --> 00:00:24,400
+Altocumulus clouds occur between six thousand
+2
+00:00:24,600 --> 00:00:27,800
+and twenty thousand feet above ground level.")
+(-> (parse :srt subs) (shift 1000) serialize-subrip print)
+(-> (parse :ssa subs) serialize-subrip print)
+(-> (parse :ssa subs) serialize-subri)
+(-> (parse :ssa subs) serialize-subrip)
+(-> (parse :ssa subs) serialize-subrip print)
+(-> (parse :srt subs) (shift 1000) serialize-subrip print)
+(-> (parse :srt subs) serialize-subrip print)
+(-> (parse :srt subs) (shift 1000) serialize-subrip print)
+(-> (parse :srt subs) serialize-subrip print)
